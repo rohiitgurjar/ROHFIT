@@ -1,4 +1,5 @@
-import express from "express"
+import express from "express";
+import pool from "./db";
 
 const app = express();
 app.use(express.json());
@@ -18,6 +19,27 @@ app.get("/api/health",(_req,res)=>{
         status:"OK",
         message:"RohFit API is running"
     });
+});
+
+//temporary database test route
+
+app.get("/api/db-test", async (_req, res) => {
+    try {
+        const result = await pool.query("SELECT NOW() AS current_time");
+
+        res.status(200).json({
+            success: true,
+            message: "PostgreSQL connected successfully",
+            time: result.rows[0].current_time
+        });
+    } catch (error) {
+        console.error("Database connection failed:", error);
+
+        res.status(500).json({
+            success: false,
+            message: "Database connection failed"
+        });
+    }
 });
 
 //GET : Retrieve all workouts
@@ -60,7 +82,7 @@ app.get("/api/workouts",(req,res)=>{
             else return a.duration - b.duration;
         });
     }
-    
+
     res.status(200).json(filteredWorkouts);
 })
 
