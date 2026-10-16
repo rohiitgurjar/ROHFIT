@@ -4,20 +4,14 @@ const app = express();
 app.use(express.json());
 const PORT = 8000
 
-let workouts = [
-    {
-        id:1,
-        name:"Chest Workout",
-        duration: 45
-    },
-    {
-        id:2,
-        name:"Leg Workout",
-        duration:60
-    }
-]
+const workouts = [
+    { id: 1, name: "Running", type: "Cardio", duration: 20 },
+    { id: 2, name: "Cycling", type: "Cardio", duration: 45 },
+    { id: 3, name: "Weight Training", type: "Strength", duration: 60 },
+    { id: 4, name: "Walking", type: "Cardio", duration: 30 }
+];
 
-let nextId = 3;
+let nextId = 5;
  //health endpoint
 app.get("/api/health",(_req,res)=>{
     res.status(200).json({
@@ -28,11 +22,46 @@ app.get("/api/health",(_req,res)=>{
 
 //GET : Retrieve all workouts
 app.get("/api/workouts",(req,res)=>{
-    res.status(200).json({
-        success:true,
-        count: workouts.length,
-        data:workouts
-    })
+    const { type, minDuration, search, sortBy, order} = req.query;
+    let filteredWorkouts = workouts;
+
+    //filteration
+
+    if(type){
+        filteredWorkouts = filteredWorkouts.filter(
+            workout => workout.type.toLowerCase() === type.toLowerCase()
+        );
+    }
+    if(minDuration !== undefined){
+        const min = Number(minDuration);
+        if(!Number.isFinite(min) || min < 0){
+            return res.status(400).json({
+                message : "minDuration must be a non-negative number"
+            });
+        }
+        filteredWorkouts = filteredWorkouts.filter(
+            workout => workout.duration >= min
+        );
+    }
+    
+    //searching
+
+    if(search){
+        filteredWorkouts = filteredWorkouts.filter(
+            workout => workout.name.toLowerCase().includes(search.toLowerCase())
+        )
+    }
+
+    //sorting
+
+    if(sortBy==="duration"){
+        filteredWorkouts = [...filteredWorkouts].sort((a,b)=>{
+            if(order === "desc") return b.duration - a.duration;
+            else return a.duration - b.duration;
+        });
+    }
+    
+    res.status(200).json(filteredWorkouts);
 })
 
 //GET : retrieve one workout
