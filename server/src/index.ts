@@ -5,14 +5,6 @@ const app = express();
 app.use(express.json());
 const PORT = 8000
 
-const workouts = [
-    { id: 1, name: "Running", type: "Cardio", duration: 20 },
-    { id: 2, name: "Cycling", type: "Cardio", duration: 45 },
-    { id: 3, name: "Weight Training", type: "Strength", duration: 60 },
-    { id: 4, name: "Walking", type: "Cardio", duration: 30 }
-];
-
-let nextId = 5;
  //health endpoint
 app.get("/api/health",(_req,res)=>{
     res.status(200).json({
@@ -22,7 +14,6 @@ app.get("/api/health",(_req,res)=>{
 });
 
 //temporary database test route
-
 app.get("/api/db-test", async (_req, res) => {
     try {
         const result = await pool.query("SELECT NOW() AS current_time");
@@ -42,74 +33,125 @@ app.get("/api/db-test", async (_req, res) => {
     }
 });
 
-//GET : Retrieve all workouts
-app.get("/api/workouts",(req,res)=>{
-    const { type, minDuration, search, sortBy, order} = req.query;
-    let filteredWorkouts = workouts;
+//GET : Retrieve all workouts from PostgreSQL
+app.get("/api/workouts",async (req,res)=>{
+    
+    try{
+        //fetch workouts from postgreSQL 
 
-    //filteration
-
-    if(type){
-        filteredWorkouts = filteredWorkouts.filter(
-            workout => workout.type.toLowerCase() === type.toLowerCase()
+        const result = await pool.query(
+            `SELECT id,name,type,duration,created_at 
+            FROM workouts
+            ORDER BY id`
         );
-    }
-    if(minDuration !== undefined){
-        const min = Number(minDuration);
-        if(!Number.isFinite(min) || min < 0){
-            return res.status(400).json({
-                message : "minDuration must be a non-negative number"
+
+        //get the query parameters
+        const { type, minDuration, search, sortBy, order } = req.query;
+    
+        //Use database record instead of old array
+        let filteredWorkouts = result.rows.map((workout) => ({
+            ...workout,
+            id: Number(workout.id)
+        }));
+
+        //filteration
+        if(type){
+            filteredWorkouts = filteredWorkouts.filter(
+                (workout) => workout.type.toLowerCase() === String(type).toLowerCase()
+            );
+        }
+        if(minDuration !== undefined){
+            const min = Number(minDuration);
+
+            if(!Number.isFinite(min) || min < 0){
+                return res.status(400).json({
+                    message : "minDuration must be a non-negative number"
+                });
+            }
+            filteredWorkouts = filteredWorkouts.filter(
+                workout => workout.duration >= min
+            );
+        }
+        
+        //searching
+        if(search){
+            filteredWorkouts = filteredWorkouts.filter(
+                (workout) => workout.name.toLowerCase().includes(String(search).toLowerCase())
+            )
+        }
+
+        //sorting
+        if(sortBy==="duration"){
+            filteredWorkouts = [...filteredWorkouts].sort((a,b)=>{
+                if(order === "desc") return b.duration - a.duration;
+                else return a.duration - b.duration;
             });
         }
-        filteredWorkouts = filteredWorkouts.filter(
-            workout => workout.duration >= min
-        );
-    }
-    
-    //searching
 
-    if(search){
-        filteredWorkouts = filteredWorkouts.filter(
-            workout => workout.name.toLowerCase().includes(search.toLowerCase())
-        )
-    }
+        res.status(200).json(filteredWorkouts);
+    } catch (error) {
+        console.error("Failed to retrieve workouts:",error);
 
-    //sorting
-
-    if(sortBy==="duration"){
-        filteredWorkouts = [...filteredWorkouts].sort((a,b)=>{
-            if(order === "desc") return b.duration - a.duration;
-            else return a.duration - b.duration;
+        return res.status(500).json({
+            success:false,
+            message:"Failed to retrieve workouts"
         });
     }
-
-    res.status(200).json(filteredWorkouts);
 })
 
 //GET : retrieve one workout
-app.get("/api/workouts/:id",(req,res)=>{
+app.get("/api/workouts/:id", async(req,res)=>{
     const id = Number(req.params.id);
-    const workout = workouts.find((item) => item.id === id);
 
-    if(!workout){
+    //Validate the ID
+    if(!Number.isSafeInteger(id) || id <=0 ){
         return res.status(400).json({
             success:false,
-            message:"workout not found"
+            message:"Invalid workout ID"
         });
     }
-    res.status(200).json({
-        success:true,
-        data:workout
-    });
+
+    try{
+        const result = await pool.query(
+            `SELECT id, name, type, duration, created_at
+            FROM workouts
+            WHERE id = $1`,[id]
+        );
+
+        if(result.rows.length === 0){
+            return res.status(404).json({
+                success:false,
+                message:"Workout not found"
+            });
+        }
+        const workout = {
+            ...result.rows[0],
+            id : Number(result.rows[0].id)
+        };
+
+        return res.status(200).json({
+            success:true,
+            data:workout
+        });
+    }catch (error){
+        console.error("Failed to retrieve workout:",error);
+        
+        return res.status(500).json({
+            success:false,
+            message:"Failed to retrieve workout"
+        });
+    }
 });
 
 //POST : Create a workout
-app.post("/api/workouts",(req,res)=>{
-    const {name,duration} = req.body;
+app.post("/api/workouts", async(req,res)=>{
+    const {name,type,duration} = req.body;
 
     if(
         typeof name !== "string" ||
         name.trim() === "" ||
+        typeof type !== "string" ||
+        type.trim() === "" ||
         !Number.isFinite(duration) ||
         duration <= 0
     ){
@@ -118,21 +160,34 @@ app.post("/api/workouts",(req,res)=>{
             message:"Provide a valid workout name and positive duration"
         });
     }
-    const newWorkout = {
-        id: nextId++,
-        name: name.trim(),
-        duration
-    };
+    
+    try {
+        const result = await pool.query( // $1,$2..etc are helping from SQL injection
+            `INSERT INTO workouts (name,type,duration)
+            VALUES ($1, $2, $3)
+            RETURNING id, name, type, duration, created_at`,
+            [name.trim(), type.trim(), duration]
+        )
 
-    workouts.push(newWorkout);
+        const workout = {
+            ...result.rows[0],
+            id: Number(result.rows[0].id)
+        };
 
-    res.status(201).json({
-        success:true,
-        message:"Workout created Successfully",
-        data:newWorkout
-    })
+        return res.status(201).json({
+            success: true,
+            message: "Workout created successfully",
+            data: workout
+        });
+    } catch (error) {
+        console.error("Failed to create workout:",error);
+
+        return res.status(500).json({
+            success:false,
+            message:"Failed to create workout"
+        });
+    }
 });
-
 
 app.listen(PORT,()=>{
     console.log(`RohFit server running at http://localhost:${PORT}`);
