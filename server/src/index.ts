@@ -1,12 +1,21 @@
 import express from "express";
 import pool from "./db";
-import workoutRoutes from "./routes/workoutRoutes"
+import workoutRoutes from "./routes/workoutRoutes";
+import {logger} from "./middleware/logger";
+import { errorHandler } from "./middleware/errorHandler";
+import { notFound } from "./middleware/notFound";
 
 const app = express();
 app.use(express.json());
 const PORT = 8000
 
+app.use(logger);
+
 app.use("/api/workouts", workoutRoutes);
+
+app.use(notFound);
+
+app.use(errorHandler);
 
  //health endpoint
 app.get("/api/health",(_req,res)=>{

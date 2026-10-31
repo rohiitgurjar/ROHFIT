@@ -1,8 +1,8 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import pool from "../db";
 
 //GET all workouts
-export const getWorkouts = async (req: Request, res: Response) => {
+export const getWorkouts = async (req: Request, res: Response, next:NextFunction) => {
 
     try{
         //fetch workouts from postgreSQL 
@@ -55,20 +55,31 @@ export const getWorkouts = async (req: Request, res: Response) => {
                 else return a.duration - b.duration;
             });
         }
+        if (sortBy && sortBy !== "duration") {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid sortBy parameter"
+            });
+        }
 
-        res.status(200).json(filteredWorkouts);
-    } catch (error) {
-        console.error("Failed to retrieve workouts:",error);
+        if (order && order !== "asc" && order !== "desc") {
+            return res.status(400).json({
+                success: false,
+                message: "Order must be asc or desc"
+            });
+        }
 
-        return res.status(500).json({
-            success:false,
-            message:"Failed to retrieve workouts"
+        res.status(200).json({
+                success: true,
+                filteredWorkouts
         });
+    } catch (error) {
+        next(error);
     }
 }
 
 //GET one workout by ID
-export const getWorkoutById = async (req: Request, res: Response) => {
+export const getWorkoutById = async (req: Request, res: Response, next:NextFunction) => {
     const id = Number(req.params.id);
 
     //Validate the ID
@@ -102,12 +113,7 @@ export const getWorkoutById = async (req: Request, res: Response) => {
             data:workout
         });
     }catch (error){
-        console.error("Failed to retrieve workout:",error);
-        
-        return res.status(500).json({
-            success:false,
-            message:"Failed to retrieve workout"
-        });
+        next(error);
     }
 }
 

@@ -12,4 +12,5 @@ router.get("/:id", getWorkoutById);
 //POST /api/workouts
 router.post("/", createWorkout);
 
+
 export default router;
