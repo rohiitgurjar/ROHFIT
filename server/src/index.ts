@@ -1,7 +1,7 @@
 import express from "express";
 import pool from "./db";
 import workoutRoutes from "./routes/workoutRoutes";
-import {logger} from "./middleware/logger";
+import { logger } from "./middleware/logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { notFound } from "./middleware/notFound";
 
@@ -13,17 +13,18 @@ app.use(logger);
 
 app.use("/api/workouts", workoutRoutes);
 
-app.use(notFound);
-
-app.use(errorHandler);
-
- //health endpoint
+//health endpoint
 app.get("/api/health",(_req,res)=>{
     res.status(200).json({
         status:"OK",
         message:"RohFit API is running"
     });
 });
+
+app.use(notFound);
+
+app.use(errorHandler);
+
 
 //temporary database test route
 app.get("/api/db-test", async (_req, res) => {

@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import pool from "../db";
+import { workoutSchema } from "../schemas/workoutSchema";
 
 //GET all workouts
 export const getWorkouts = async (req: Request, res: Response, next:NextFunction) => {
@@ -118,23 +119,22 @@ export const getWorkoutById = async (req: Request, res: Response, next:NextFunct
 }
 
 //POST : Create Workout
-export const createWorkout = async (req: Request, res: Response) => {
-    const {name,type,duration} = req.body;
+export const createWorkout = async (req: Request, res: Response, next:NextFunction) => {
 
-    if(
-        typeof name !== "string" ||
-        name.trim() === "" ||
-        typeof type !== "string" ||
-        type.trim() === "" ||
-        !Number.isFinite(duration) ||
-        duration <= 0
-    ){
+    const validation = workoutSchema.safeParse(req.body);
+
+    if (!validation.success) {
         return res.status(400).json({
-            success:false,
-            message:"Provide a valid workout name and positive duration"
+            success: false,
+            message: "Invalid workout data",
+            errors: validation.error.issues
         });
     }
-    
+
+    // CHANGE 3: Get data from validated result, NOT req.body.
+    const { name, type, duration } = validation.data;
+
+
     try {
         const result = await pool.query( // $1,$2..etc are helping from SQL injection
             `INSERT INTO workouts (name,type,duration)
@@ -154,11 +154,6 @@ export const createWorkout = async (req: Request, res: Response) => {
             data: workout
         });
     } catch (error) {
-        console.error("Failed to create workout:",error);
-
-        return res.status(500).json({
-            success:false,
-            message:"Failed to create workout"
-        });
+        next(error);
     }
 }
