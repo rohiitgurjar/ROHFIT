@@ -121,21 +121,9 @@ export const getWorkoutById = async (req: Request, res: Response, next:NextFunct
 //POST : Create Workout
 export const createWorkout = async (req: Request, res: Response, next:NextFunction) => {
 
-    const validation = workoutSchema.safeParse(req.body);
-
-    if (!validation.success) {
-        return res.status(400).json({
-            success: false,
-            message: "Invalid workout data",
-            errors: validation.error.issues
-        });
-    }
-
-    // CHANGE 3: Get data from validated result, NOT req.body.
-    const { name, type, duration } = validation.data;
-
-
     try {
+        const {name, type, duration} = req.body;
+
         const result = await pool.query( // $1,$2..etc are helping from SQL injection
             `INSERT INTO workouts (name,type,duration)
             VALUES ($1, $2, $3)
