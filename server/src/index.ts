@@ -1,3 +1,4 @@
+import "dotenv/config"
 import express from "express";
 import pool from "./db";
 import workoutRoutes from "./routes/workoutRoutes";
@@ -7,7 +8,7 @@ import { notFound } from "./middleware/notFound";
 
 const app = express();
 app.use(express.json());
-const PORT = 8000
+const PORT = Number(process.env.PORT) || 8000;
 
 app.use(logger);
 
@@ -20,11 +21,6 @@ app.get("/api/health",(_req,res)=>{
         message:"RohFit API is running"
     });
 });
-
-app.use(notFound);
-
-app.use(errorHandler);
-
 
 //temporary database test route
 app.get("/api/db-test", async (_req, res) => {
@@ -45,6 +41,10 @@ app.get("/api/db-test", async (_req, res) => {
         });
     }
 });
+
+
+app.use(notFound);
+app.use(errorHandler);
 
 
 app.listen(PORT,()=>{

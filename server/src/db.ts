@@ -1,10 +1,11 @@
-import { Pool } from "pg"; // imports PostgreSQL connection pool
+
+import { Pool } from "pg";
 
 const pool = new Pool({
-    host : "localhost",
-    port: 5432,
-    database: "rohfit_dev",
-    user: process.env.USER,
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT),
+    database: process.env.DB_NAME,
+    user: process.env.DB_USER,
 });
 
 export default pool;
