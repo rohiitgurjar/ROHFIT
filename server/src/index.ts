@@ -5,6 +5,7 @@ import workoutRoutes from "./routes/workoutRoutes";
 import { logger } from "./middleware/logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { notFound } from "./middleware/notFound";
+import authRoutes from "./routes/authRoutes";
 
 const app = express();
 app.use(express.json());
@@ -13,6 +14,7 @@ const PORT = Number(process.env.PORT) || 8000;
 app.use(logger);
 
 app.use("/api/workouts", workoutRoutes);
+app.use("/api/auth", authRoutes);
 
 //health endpoint
 app.get("/api/health",(_req,res)=>{
